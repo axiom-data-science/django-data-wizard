@@ -825,11 +825,21 @@ def import_row(run, i, row, instance_globals, matched):
 
         try:
             # Try to find an existing model record based on the
-            # natural keys. If found, use it to update the record
+            # natural keys. If found, use it to update the record.
             assert Serializer.Meta.allow_update is True
+
             nat_fields = Serializer.Meta.model.get_natural_key_fields()
-            nat_values = [ record[f] for f in nat_fields ]
-            instance = Serializer.Meta.model.objects.find(*nat_values)
+            nat_values = { f: record[f] for f in nat_fields }
+
+            # If a function is defined in the Serializer Meta to convert the
+            # records into the natural key format (i.e. `to_internal_value`)
+            # call it here. We can't use `to_internal_value` because it validates
+            # for unique rows and that is exactly what we are trying to
+            # work around (we want to update this record)
+            if hasattr(Serializer.Meta, 'convert_natural_keys'):
+                nat_values = Serializer.Meta.convert_natural_keys(nat_values)
+
+            instance = Serializer.Meta.model.objects.find(*nat_values.values())
             assert instance is not None
             serializer = Serializer(
                 instance,
