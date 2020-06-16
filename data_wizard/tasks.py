@@ -692,9 +692,13 @@ def import_data(run, user):
 
 def do_import(run, user):
     if reversion:
-        with reversion.create_revision():
-            reversion.set_user(user)
-            reversion.set_comment('Imported via %s' % run)
+        try:
+            with reversion.create_revision():
+                reversion.set_user(user)
+                reversion.set_comment('Imported via %s' % run)
+                result = _do_import(run, user)
+        except transaction.TransactionManagementError as e:
+            logging.warning(f"Could not create revision: {e}")
             result = _do_import(run, user)
     else:
         result = _do_import(run, user)
