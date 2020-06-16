@@ -739,9 +739,13 @@ def import_data(run):
     Import all parseable data from the dataset instance's Iter class.
     """
     if reversion:
-        with reversion.create_revision():
-            reversion.set_user(run.user)
-            reversion.set_comment("Imported via %s" % run)
+        try:
+            with reversion.create_revision():
+                reversion.set_user(run.user)
+                reversion.set_comment('Imported via %s' % run)
+                result = _do_import(run)
+        except transaction.TransactionManagementError as e:
+            logging.warning(f"Could not create revision: {e}")
             result = _do_import(run)
     else:
         result = _do_import(run)
