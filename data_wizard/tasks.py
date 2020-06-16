@@ -820,15 +820,38 @@ def import_row(run, i, row, instance_globals, matched):
     record.pop('_attr_index', None)
 
     Serializer = run.get_serializer()
+
     try:
-        serializer = Serializer(
-            data=parse_json_form(record),
-            context={
-                'data_wizard': {
-                    'run': run,
-                }
-            },
-        )
+
+        try:
+            # Try to find an existing model record based on the
+            # natural keys. If found, use it to update the record
+            assert Serializer.Meta.allow_update is True
+            nat_fields = Serializer.Meta.model.get_natural_key_fields()
+            nat_values = [ record[f] for f in nat_fields ]
+            instance = Serializer.Meta.model.objects.find(*nat_values)
+            assert instance is not None
+            serializer = Serializer(
+                instance,
+                data=parse_json_form(record),
+                context={
+                    'data_wizard': {
+                        'run': run,
+                    }
+                },
+            )
+        except Exception:
+            # If we could not locate a record based on the natural_keys
+            # we should create an instance
+            serializer = Serializer(
+                data=parse_json_form(record),
+                context={
+                    'data_wizard': {
+                        'run': run,
+                    }
+                },
+            )
+
         if serializer.is_valid():
             with transaction.atomic():
                 obj = serializer.save()
