@@ -565,11 +565,14 @@ def parse_row_identifiers(run):
 
         # To enable matching of NaturalKey models, cache the single-key values here
         if len(info['cols']) == 1:
-            target_model = info['serializer_field'].Meta.model
-            nat_keys = target_model.get_natural_key_fields()
-            keys_for_matching = info['cols'][0]['queryset'].values_list(
-                *nat_keys, flat=True
-            )
+            try:
+                target_model = info['serializer_field'].Meta.model
+                nat_keys = target_model.get_natural_key_fields()
+                keys_for_matching = info['cols'][0]['queryset'].values_list(
+                    *nat_keys, flat=True
+                )
+            except BaseException:
+                keys_for_matching = []
 
         for name, idinfo in info['ids'].items():
             ident = Identifier.objects.filter(
