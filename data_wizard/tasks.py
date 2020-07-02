@@ -562,6 +562,15 @@ def parse_row_identifiers(run):
             assert(idinfo['end_row'] > -1)
 
     for field_name, info in lookup_fields.items():
+
+        # To enable matching of NaturalKey models, cache the single-key values here
+        if len(info['cols']) == 1:
+            target_model = info['serializer_field'].Meta.model
+            nat_keys = target_model.get_natural_key_fields()
+            keys_for_matching = info['cols'][0]['queryset'].values_list(
+                *nat_keys, flat=True
+            )
+
         for name, idinfo in info['ids'].items():
             ident = Identifier.objects.filter(
                 serializer=run.serializer,
@@ -571,6 +580,12 @@ def parse_row_identifiers(run):
 
             if not ident:
                 value = idmap(name, info['serializer_field'])
+
+                # If the name matches the NaturalKey, make it the value so we don't need
+                # to select every FK from a huge list on first import
+                if value is None and len(info['cols']) == 1 and name in keys_for_matching:
+                    value = name
+
                 ident = Identifier.objects.create(
                     serializer=run.serializer,
                     field=field_name,
