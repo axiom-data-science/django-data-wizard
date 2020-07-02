@@ -720,7 +720,7 @@ def do_import(run, user):
                 reversion.set_comment('Imported via %s' % run)
                 result = _do_import(run, user)
         except transaction.TransactionManagementError as e:
-            logging.warning(f"Could not create revision: {e}")
+            logging.warning('Could not create revision: %s' % e)
             result = _do_import(run, user)
     else:
         result = _do_import(run, user)
