@@ -591,9 +591,6 @@ def parse_row_identifiers(run):
             assert idinfo["end_row"] > -1
 
     for field_name, info in lookup_fields.items():
-<<<<<<< HEAD
-        for name, idinfo in info["ids"].items():
-=======
 
         # To enable matching of NaturalKey models, cache the single-key values here
         if len(info['cols']) == 1:
@@ -603,8 +600,7 @@ def parse_row_identifiers(run):
                 *nat_keys, flat=True
             )
 
-        for name, idinfo in info['ids'].items():
->>>>>>> 5b97759 (Auto-select FK matches)
+        for name, idinfo in info["ids"].items():
             ident = Identifier.objects.filter(
                 serializer=run.serializer,
                 field=field_name,
@@ -612,17 +608,13 @@ def parse_row_identifiers(run):
             ).first()
 
             if not ident:
-<<<<<<< HEAD
                 value = idmap(name, info["serializer_field"])
-=======
-                value = idmap(name, info['serializer_field'])
 
                 # If the name matches the NaturalKey, make it the value so we don't need
                 # to select every FK from a huge list on first import
                 if value is None and len(info['cols']) == 1 and name in keys_for_matching:
                     value = name
 
->>>>>>> 5b97759 (Auto-select FK matches)
                 ident = Identifier.objects.create(
                     serializer=run.serializer,
                     field=field_name,
@@ -698,6 +690,11 @@ def load_row_identifiers(run):
                             "label": "New %s" % idinfo["type_label"],
                         },
                     )
+                    if not ident.value and field.required is False:
+                        info['choices'].insert(1, {
+                            'id': 'setnull',
+                            'label': "Set %s to NULL" % idinfo['type_label'],
+                        })
 
             idinfo["ids"].append(info)
         idinfo["ids"].sort(key=lambda info: info["value"])
