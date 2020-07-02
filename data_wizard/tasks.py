@@ -655,6 +655,11 @@ def load_row_identifiers(run):
                         'id': 'new',
                         'label': "New %s" % idinfo['type_label'],
                     })
+                    if not ident.value and field.required is False:
+                        info['choices'].insert(1, {
+                            'id': 'setnull',
+                            'label': "Set %s to NULL" % idinfo['type_label'],
+                        })
 
             idinfo['ids'].append(info)
         idinfo['ids'].sort(key=lambda info: info['value'])
@@ -681,6 +686,8 @@ def update_row_identifiers(run, user, post={}):
 
         if ident_id == 'new':
             ident.value = ident.name
+        elif ident_id == 'setnull':
+            ident.value = None
         else:
             ident.value = ident_id
 
@@ -835,6 +842,13 @@ def import_row(run, i, row, instance_globals, matched):
             ).first()
             if ident and ident.value:
                 record[field_name] = ident.value
+            elif ident and not ident.value:
+                # strip off the foreign key stuff
+                if '[' in field_name:
+                    # We have a relation that can be null
+                    new_field_name = field_name.split('[')[0]
+                    record[new_field_name] = None
+                    record.pop(field_name)
 
     record.pop('_attr_index', None)
 

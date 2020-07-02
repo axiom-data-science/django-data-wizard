@@ -126,7 +126,7 @@ class RunLog(models.Model):
 class Identifier(models.Model):
     serializer = models.CharField(max_length=255)
     name = models.CharField(
-        max_length=255,
+        max_length=255, default='', blank=True,
         verbose_name='spreadsheet value',
     )
     value = models.CharField(
