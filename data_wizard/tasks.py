@@ -622,8 +622,24 @@ def parse_row_identifiers(run):
                 keys_for_matching = info['cols'][0]['queryset'].values_list(
                     *nat_keys, flat=True
                 )
+
+                # Also try to match strings, for integer key columns
+                try:
+                    strs_for_matching = [ str(x) for x in keys_for_matching ]
+                except BaseException:
+                    strs_for_matching = []
+
+                # Also try to match floats, for integer key columns with float values
+                # in other input files
+                try:
+                    floats_for_matching = [ str(float(x)) for x in keys_for_matching ]
+                except BaseException:
+                    floats_for_matching = []
+
             except BaseException:
                 keys_for_matching = []
+                strs_for_matching = []
+                floats_for_matching = []
 
         for name, idinfo in info["ids"].items():
             ident = Identifier.objects.filter(
@@ -632,12 +648,35 @@ def parse_row_identifiers(run):
                 name__iexact=name,
             ).first()
 
-            if not ident:
+            # Match any non-null idents with possible NaturalKey model keys
+            if ident and not ident.resolved:
+
+                # Try to convert floats to integers
+                if (
+                    ident.name in keys_for_matching or
+                    ident.name in strs_for_matching or
+                    ident.name in floats_for_matching
+                ):
+                    ident.value = ident.name
+                    ident.resolved = True
+                    ident.save()
+
+            # Create Identifier if we need to
+            elif not ident:
                 value = idmap(name, info["serializer_field"])
 
+                # Match a null idents with possible NaturalKey model keys
                 # If the name matches the NaturalKey, make it the value so we don't need
                 # to select every FK from a huge list on first import
-                if value is None and len(info['cols']) == 1 and name in keys_for_matching:
+                if (
+                    value is None and
+                    len(info['cols']) == 1 and
+                    (
+                        name in keys_for_matching or
+                        name in strs_for_matching or
+                        name in floats_for_matching
+                    )
+                ):
                     value = name
 
                 ident = Identifier.objects.create(
