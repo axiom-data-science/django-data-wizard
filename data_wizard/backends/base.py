@@ -82,7 +82,6 @@ class DataWizardBackend(object):
         try:
             result = self.run_sync(task_name, run_id, post)
         except Exception as e:
-            logging.exception(e)
             error = self.format_exception(e)
             if ERROR_UPDATE_ASYNC in on_error:
                 self.update_async_status("FAILURE", error)
