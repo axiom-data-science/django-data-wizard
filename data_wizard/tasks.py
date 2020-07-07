@@ -1,7 +1,9 @@
+from functools import wraps
 from collections import OrderedDict
 from .models import Identifier
 from .signals import import_complete, new_metadata
 from . import registry, wizard_task, InputNeeded
+from timeit import default_timer as timer
 
 from django.db import transaction
 from django.contrib.contenttypes.models import ContentType
@@ -25,6 +27,21 @@ PRIORITY = {
     "unresolved": 4,
     "unknown": 5,
 }
+
+
+def timing(func):
+    @wraps(func)
+    def wrap(*args, **kwargs):
+        ts = timer()
+        result = func(*args, **kwargs)
+        te = timer()
+        sec = te - ts
+        logging.info((
+            f'{func.__name__} took {sec:.4f} seconds. '
+            f'{args} {kwargs}'
+        ))
+        return result
+    return wrap
 
 
 def get_ct(model):
@@ -311,6 +328,7 @@ def get_columns(run):
         return parse_columns(run)
 
 
+@timing
 def get_lookup_columns(run):
     cols = []
     choices = {
@@ -337,6 +355,7 @@ def get_lookup_columns(run):
     return cols
 
 
+@timing
 def load_columns(run):
     table = run.load_iter()
     cols = list(table.field_map.keys())
@@ -382,6 +401,7 @@ def load_columns(run):
     return matched
 
 
+@timing
 def get_range_value(table, rng, scol, ecol):
     if rng.start_row == rng.end_row and scol == ecol:
         return table.extra_data.get(rng.start_row, {}).get(scol)
@@ -393,6 +413,7 @@ def get_range_value(table, rng, scol, ecol):
     return val
 
 
+@timing
 def parse_columns(run):
     run.add_event("parse_columns")
     table = run.load_iter()
@@ -528,6 +549,7 @@ def read_row_identifiers(run):
         return parse_row_identifiers(run)
 
 
+@timing
 def parse_row_identifiers(run):
     run.add_event("parse_row_identifiers")
 
@@ -639,6 +661,7 @@ def parse_row_identifiers(run):
     return load_row_identifiers(run)
 
 
+@timing
 def load_row_identifiers(run):
     ids = {}
     lookup_cols = get_lookup_columns(run)
