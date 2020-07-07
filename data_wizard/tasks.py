@@ -3,6 +3,7 @@ from collections import OrderedDict
 from .models import Run, Identifier
 from .signals import progress, import_complete, new_metadata
 from functools import wraps
+from timeit import default_timer as timer
 
 from django.db import transaction
 from django.contrib.contenttypes.models import ContentType
@@ -29,6 +30,21 @@ PRIORITY = {
     'unresolved': 4,
     'unknown': 5,
 }
+
+
+def timing(func):
+    @wraps(func)
+    def wrap(*args, **kwargs):
+        ts = timer()
+        result = func(*args, **kwargs)
+        te = timer()
+        sec = te - ts
+        logging.info((
+            f'{func.__name__} took {sec:.4f} seconds. '
+            f'{args} {kwargs}'
+        ))
+        return result
+    return wrap
 
 
 def get_ct(model):
@@ -283,6 +299,7 @@ def get_choice_ids(run):
 
 
 @lookuprun
+@timing
 def read_columns(run, user=None):
     matched = get_columns(run)
     unknown_count = 0
@@ -308,6 +325,7 @@ def get_columns(run):
         return parse_columns(run)
 
 
+@timing
 def get_lookup_columns(run):
     cols = []
     choices = {
@@ -334,6 +352,7 @@ def get_lookup_columns(run):
     return cols
 
 
+@timing
 def load_columns(run):
     table = run.load_iter()
     cols = list(table.field_map.keys())
@@ -376,6 +395,7 @@ def load_columns(run):
     return matched
 
 
+@timing
 def get_range_value(table, rng, scol, ecol):
     if rng.start_row == rng.end_row and scol == ecol:
         return table.extra_data.get(rng.start_row, {}).get(scol)
@@ -387,6 +407,7 @@ def get_range_value(table, rng, scol, ecol):
     return val
 
 
+@timing
 def parse_columns(run):
     run.add_event('parse_columns')
     table = run.load_iter()
@@ -457,6 +478,7 @@ def parse_column(run, name, **kwargs):
 
 
 @lookuprun
+@timing
 def update_columns(run, user, post={}):
     run.add_event('update_columns')
     matched = get_columns(run)
@@ -505,6 +527,7 @@ def read_row_identifiers(run, user=None):
         return parse_row_identifiers(run)
 
 
+@timing
 def parse_row_identifiers(run):
     run.add_event('parse_row_identifiers')
 
@@ -610,6 +633,7 @@ def parse_row_identifiers(run):
     return load_row_identifiers(run)
 
 
+@timing
 def load_row_identifiers(run):
     ids = {}
     lookup_cols = get_lookup_columns(run)
@@ -675,6 +699,7 @@ def load_row_identifiers(run):
 
 
 @lookuprun
+@timing
 def update_row_identifiers(run, user, post={}):
     run.add_event('update_row_identifiers')
     unknown = run.range_set.filter(
@@ -726,6 +751,7 @@ def do_import(run, user):
     return result
 
 
+@timing
 def _do_import(run, user):
     send = send_progress(import_data, run)
     run.add_event('do_import')
