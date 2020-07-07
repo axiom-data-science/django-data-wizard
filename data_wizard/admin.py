@@ -17,7 +17,7 @@ class FixedTabularInline(admin.TabularInline):
 
 class RangeInline(admin.TabularInline):
     model = Range
-    fields = [
+    fields = readonly_fields = [
         'identifier',
         'type',
         'header_col',
@@ -41,6 +41,14 @@ class RecordInline(FixedTabularInline):
         'fail_reason'
     ]
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.prefetch_related(
+            'content_object'
+        )
+        return qs
+
+
 
 class RunLogInline(FixedTabularInline):
     model = RunLog
@@ -53,6 +61,17 @@ class RunAdmin(admin.ModelAdmin):
         '__str__', 'serializer_label', 'record_count', 'last_update'
     ]
     inlines = [RangeInline, RecordInline, RunLogInline]
+    list_filter = ['serializer']
+    list_select_related = True
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.select_related(
+            'content_type'
+        ).prefetch_related(
+            'log', 'range_set'
+        )
+        return qs
 
 
 @admin.register(Identifier)
