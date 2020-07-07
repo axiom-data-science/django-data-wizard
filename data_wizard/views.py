@@ -8,6 +8,7 @@ from .backends.base import TASK_META
 from .serializers import RunSerializer, RecordSerializer
 from .models import Run
 from .settings import import_setting
+from django.db.models.query import prefetch_related_objects
 
 
 class PageNumberPagination(pagination.PageNumberPagination):
@@ -157,7 +158,12 @@ class RunViewSet(ModelViewSet):
     @action(detail=True)
     def records(self, request, *args, **kwargs):
         response = self.retrieve(self.request, **kwargs)
+        recs = self.get_object().record_set.all()
+        # Little bit of magic here to speed up the display of records considerably
+        # https://docs.djangoproject.com/en/2.2/ref/models/querysets/#prefetch-related-objects
+        # Original reference: https://stackoverflow.com/a/51843752
+        prefetch_related_objects(recs, 'content_object')
         response.data["records"] = self.record_serializer_class(
-            self.get_object().record_set.all(), many=True
+            recs, many=True
         ).data
         return response
