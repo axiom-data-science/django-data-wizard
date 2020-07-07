@@ -762,13 +762,9 @@ def import_data(run):
     Import all parseable data from the dataset instance's Iter class.
     """
     if reversion:
-        try:
-            with reversion.create_revision():
-                reversion.set_user(run.user)
-                reversion.set_comment('Imported via %s' % run)
-                result = _do_import(run)
-        except transaction.TransactionManagementError as e:
-            logging.warning(f"Could not create revision: {e}")
+        with reversion.create_revision(atomic=False):
+            reversion.set_user(run.user)
+            reversion.set_comment('Imported via %s' % run)
             result = _do_import(run)
     else:
         result = _do_import(run)
@@ -937,16 +933,18 @@ def import_row(run, i, record):
         else:
             obj = None
             error = json.dumps(serializer.errors)
+
     except Exception as e:
         logging.warning(
-            "{run}: Error In Row {row}".format(
+            "{run}: Error In Row {row}: {e}".format(
                 run=run,
                 row=i,
+                e=e
             )
         )
-        logging.exception(e)
         obj = None
         error = repr(e)
+
     return obj, error
 
 
