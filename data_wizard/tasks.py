@@ -466,8 +466,12 @@ def parse_column(run, name, **kwargs):
         matches.sort(key=lambda ident: PRIORITY.get(ident.type, 0))
         ident = matches[0]
     else:
-        if name in get_choice_ids(run):
+        choices = get_choice_ids(run)
+        lower_choices = [ c.lower() for c in choices ]
+        if name in choices:
             field = name
+        elif name.lower() in lower_choices:
+            field = choices[lower_choices.index(name.lower())]
         else:
             field = None
         ident = Identifier.objects.create(
