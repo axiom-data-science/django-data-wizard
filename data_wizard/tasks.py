@@ -469,6 +469,25 @@ def parse_column(run, name, **kwargs):
             field = choices[lower_choices.index(name.lower())]
         else:
             field = None
+            # LOOK: Try to auto match relations. This will make the wizard a bit
+            # more user friendly but couldn't potentially cause issues on a bad match
+            for x in choices:
+                # Only try to match foreign keys this way
+                if '[' not in x:
+                    continue
+                prefix_match = x.split('[')[0].lower()
+                # suffix_match = x.split('[')[-1].lower().replace(']', '')
+                match = any([
+                    name.lower() == prefix_match,
+                    re.sub(r'code$', '', name.lower()) == prefix_match,
+                    re.sub(r'id$', '', name.lower()) == prefix_match,
+                    # name.lower() == suffix_match
+                ])
+                if match is True:
+                    field = x
+                    logging.info(f"Matched {field} to {x}")
+                    break
+
         ident = Identifier.objects.create(
             serializer=run.serializer,
             name=name,
