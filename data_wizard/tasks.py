@@ -928,9 +928,26 @@ def import_row(run, i, row, instance_globals, matched):
             # Try to find an existing model record based on the
             # natural keys. If found, use it to update the record.
             assert Serializer.Meta.allow_update is True
-
             nat_fields = Serializer.Meta.model.get_natural_key_fields()
-            nat_values = { f: record[f] for f in nat_fields }
+            try:
+                # For single-key models this works
+                nat_values = { f: record[f] for f in nat_fields }
+            except KeyError:
+                # For multi-key models, change the field name around
+                # to match the wizard defaults
+                try:
+                    nat_values = {}
+                    for nf in nat_fields:
+                        key = nf.replace('__', '[') + ']'
+                        if nf in record:
+                            nat_values[nf] = record[nf]
+                        elif key in record:
+                            nat_values[nf] = record[key]
+
+                    # nat_values = { f: record[f.replace('__', '[') + ']'] if '__' in f else f for f in nat_fields }
+                except Exception:
+                    logging.error("Could not find natural key model to update, will try to create.")
+                    raise
 
             # If a function is defined in the Serializer Meta to convert the
             # records into the natural key format (i.e. `to_internal_value`)
