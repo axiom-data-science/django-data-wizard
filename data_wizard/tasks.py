@@ -1,3 +1,4 @@
+import re
 from xlrd import colname
 from collections import OrderedDict
 from .models import Run, Identifier
@@ -591,31 +592,15 @@ def parse_row_identifiers(run):
     for field_name, info in lookup_fields.items():
 
         # To enable matching of NaturalKey models, cache the single-key values here
+        nat_values = []
+
         if len(info['cols']) == 1:
-            try:
-                target_model = info['serializer_field'].Meta.model
-                nat_keys = target_model.get_natural_key_fields()
-                keys_for_matching = info['cols'][0]['queryset'].values_list(
-                    *nat_keys, flat=True
-                )
 
-                # Also try to match strings, for integer key columns
-                try:
-                    strs_for_matching = [ str(x) for x in keys_for_matching ]
-                except BaseException:
-                    strs_for_matching = []
-
-                # Also try to match floats, for integer key columns with float values
-                # in other input files
-                try:
-                    floats_for_matching = [ str(float(x)) for x in keys_for_matching ]
-                except BaseException:
-                    floats_for_matching = []
-
-            except BaseException:
-                keys_for_matching = []
-                strs_for_matching = []
-                floats_for_matching = []
+            target_model = info['serializer_field'].Meta.model
+            nat_keys = target_model.get_natural_key_fields()
+            nat_values = list(info['cols'][0]['queryset'].values_list(
+                *nat_keys, flat=True)
+            )
 
         for name, idinfo in info['ids'].items():
             ident = Identifier.objects.filter(
@@ -624,18 +609,43 @@ def parse_row_identifiers(run):
                 name__iexact=name,
             ).first()
 
+            # Try to match the string, integer and float/integer string representation
+            # of each natural key. This is due to bad input data from Access, Excel,
+            # and other strange formats. Sometimes there are float-like integers, i.e. '1.0'
+            # that need to be mapped to a CharField natural-key of '1'.
+            possible_key_matches = [ name ]
+
+            # Actual integer matches
+            try:
+                possible_key_matches.append(int(float(name)))
+            except Exception:
+                pass
+
+            # String representation of integer matches
+            try:
+                possible_key_matches.append(str(int(float(name))))
+            except Exception:
+                pass
+
+            # String representation of float matches
+            try:
+                possible_key_matches.append(str(float(name)))
+            except Exception:
+                pass
+
+            # Unique the possible list
+            possible_key_matches = list(set(possible_key_matches))
+
             # Match any non-null idents with possible NaturalKey model keys
             if ident and not ident.resolved:
 
-                # Try to convert floats to integers
-                if (
-                    ident.name in keys_for_matching or
-                    ident.name in strs_for_matching or
-                    ident.name in floats_for_matching
-                ):
-                    ident.value = ident.name
-                    ident.resolved = True
-                    ident.save()
+                for k in possible_key_matches:
+                    if k in nat_values:
+                        logging.info(f'Matched {name} to {k}')
+                        ident.value = k
+                        ident.resolved = True
+                        ident.save()
+                        break
 
             # Create Identifier if we need to
             elif not ident:
@@ -644,16 +654,12 @@ def parse_row_identifiers(run):
                 # Match a null idents with possible NaturalKey model keys
                 # If the name matches the NaturalKey, make it the value so we don't need
                 # to select every FK from a huge list on first import
-                if (
-                    value is None and
-                    len(info['cols']) == 1 and
-                    (
-                        name in keys_for_matching or
-                        name in strs_for_matching or
-                        name in floats_for_matching
-                    )
-                ):
-                    value = name
+                if value is None and nat_values:
+                    for k in possible_key_matches:
+                        if k in nat_values:
+                            logging.info(f'Matched {name} to {k}')
+                            value = k
+                            break
 
                 ident = Identifier.objects.create(
                     serializer=run.serializer,
