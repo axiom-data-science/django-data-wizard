@@ -967,7 +967,7 @@ def import_row(run, i, record):
             if hasattr(Serializer.Meta, 'convert_natural_keys'):
                 nat_values = Serializer.Meta.convert_natural_keys(nat_values)
 
-            instance = Serializer.Meta.model.objects.find(*nat_values.values())
+            instance = Serializer.Meta.model.objects.get_by_natural_key(*nat_values.values())
             assert instance is not None
             serializer = Serializer(
                 instance,
