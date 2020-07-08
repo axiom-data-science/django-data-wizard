@@ -30,6 +30,13 @@ class RangeInline(admin.TabularInline):
     ]
     extra = 0
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.select_related(
+            'identifier'
+        )
+        return qs
+
 
 class RecordInline(FixedTabularInline):
     model = Record
@@ -49,10 +56,14 @@ class RecordInline(FixedTabularInline):
         return qs
 
 
-
 class RunLogInline(FixedTabularInline):
     model = RunLog
     readonly_fields = ['event', 'date']
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        qs = qs.select_related('run')
+        return qs
 
 
 @admin.register(Run)
@@ -67,10 +78,8 @@ class RunAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         qs = qs.select_related(
-            'content_type'
-        ).prefetch_related(
-            'log', 'range_set'
-        )
+            'content_type', 'user',
+        ).prefetch_related('content_object').defer('log')
         return qs
 
 
