@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('data_wizard', '0003_identifier_allow_null'),
+        ('data_wizard', '0004_identifier_allow_null'),
     ]
 
     operations = [
