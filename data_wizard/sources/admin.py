@@ -4,7 +4,6 @@ from data_wizard.admin import ImportActionModelAdmin
 from .models import FileSource, URLSource
 
 
-@
 class SourceAdmin(ImportActionModelAdmin):
     readonly_fields = ("user",)
 
@@ -14,7 +13,7 @@ class SourceAdmin(ImportActionModelAdmin):
         super().save_model(request, obj, form, change)
 
 
-admin.register(FileSource)
+@admin.register(FileSource)
 class FileSourceAdmin(SourceAdmin):
     list_display = [
         'name', 'file', 'date'
