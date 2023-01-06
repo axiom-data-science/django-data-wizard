@@ -1052,7 +1052,7 @@ def import_row(run, i, record):
             assert instance is not None
             serializer = Serializer(
                 instance,
-                data=parse_json_form(record),
+                data=record,
                 context={
                     'data_wizard': {
                         'run': run,
@@ -1064,7 +1064,7 @@ def import_row(run, i, record):
             # If we could not locate a record based on the natural_keys
             # we should create an instance
             serializer = Serializer(
-                data=parse_json_form(record),
+                data=record,
                 context={
                     'data_wizard': {
                         'run': run,
