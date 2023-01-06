@@ -984,10 +984,23 @@ def build_row(run, row, instance_globals, matched):
             seen.add(field_name)
             ident = Identifier.objects.filter(
                 serializer=run.serializer,
+                field=field_name,
                 name__iexact=str(record[field_name]),
             ).first()
-            if ident and ident.value:
-                record[field_name] = ident.value
+            if ident:
+                if ident.value:
+                    record[field_name] = ident.value
+                elif (
+                    not record[field_name] and
+                    '[' in col['mapping'] and ' -> ' in col['match']
+                ):
+                    # Instead of setting null foreign keys like so
+                    # {'accspgrid[ACCSPGridCode]': ''}
+                    # we set them explicitly to None like so
+                    # {'accspgrid': None}
+                    # Which will work with the default Serializers
+                    del record[field_name]
+                    record[field_name.split('[')[0]] = None
 
     record.pop("_attr_index", None)
 
