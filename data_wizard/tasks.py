@@ -1,4 +1,5 @@
 import re
+import concurrent
 from xlrd import colname
 from collections import OrderedDict
 from .models import Run, Identifier
@@ -882,38 +883,40 @@ def get_rows(run):
         yield build_row(run, row, run_globals, matched)
 
 
+@timing
 def _do_import(run):
     run.add_event("do_import")
 
-    # Loop through table rows and add each record
+
     table = run.load_iter()
     rows = len(table)
     skipped = []
 
     if table.tabular:
-
         def rownum(i):
             return i + table.start_row
-
     else:
-
         def rownum(i):
             return i
 
-    for i, row in enumerate(get_rows(run)):
-        # Update state (for status() on view)
-        run.send_progress(
-            {
-                "message": "Importing Data...",
-                "stage": "data",
-                "current": i,
-                "total": rows,
-                "skipped": skipped,
-            }
-        )
+    # Put the table into memory
+    table = list(table)
+
+    # Set any global defaults defined within data themselves (usually as extra
+    # cells above the headers in a spreadsheet)
+    run_globals = {}
+    matched = get_columns(run)
+    for col in matched:
+        if "meta_value" in col:
+            save_value(col, col["meta_value"], run_globals)
+
+
+    def process_row(i, row):
+
+        built_row = build_row(run, row, run_globals, matched)
 
         # Create report, capturing any errors
-        obj, error = import_row(run, i, row)
+        obj, error = import_row(run, i, built_row)
         if error:
             success = False
             fail_reason = error
@@ -931,8 +934,27 @@ def _do_import(run):
             fail_reason=fail_reason,
         )
 
+
+    j = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(rows, 64)) as executor:
+        futures = {
+            executor.submit(process_row, i, row)
+            for i, row in enumerate(table)
+        }
+        for j, _ in enumerate(concurrent.futures.as_completed(futures)):
+            # Update state (for status() on view)
+            run.send_progress(
+                {
+                    "message": "Import Data...",
+                    "stage": "data",
+                    "current": j,
+                    "total": rows,
+                    "skipped": skipped,
+                }
+            )
+
     # Send completion signal (in case any server handlers are registered)
-    status = {"current": i + 1, "total": rows, "skipped": skipped}
+    status = {"current": j + 1, "total": rows, "skipped": skipped}
     run.add_event("import_complete")
     run.record_count = run.record_set.filter(success=True).count()
     run.save()
